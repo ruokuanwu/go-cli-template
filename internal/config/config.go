@@ -4,6 +4,11 @@ import "os"
 
 type Config struct {
 	Log Log
+	DB  Database
+}
+
+type Database struct {
+	DSN string
 }
 
 type Log struct {
@@ -15,5 +20,9 @@ func Load() Config {
 	if level == "" {
 		level = "info"
 	}
-	return Config{Log: Log{Level: level}}
+	dsn := os.Getenv("APP_DB_DSN")
+	if dsn == "" {
+		dsn = ":memory:"
+	}
+	return Config{Log: Log{Level: level}, DB: Database{DSN: dsn}}
 }

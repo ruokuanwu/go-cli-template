@@ -6,12 +6,16 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// Open initializes GORM with a caller-provided database driver.
-func Open(dialector gorm.Dialector, options ...gorm.Option) (*gorm.DB, error) {
+// Open initializes GORM with the supplied driver and returns its cleanup function.
+func Open(dialector gorm.Dialector, options ...gorm.Option) (*gorm.DB, func() error, error) {
 	options = append([]gorm.Option{&gorm.Config{Logger: logger.Default.LogMode(logger.Silent)}}, options...)
 	database, err := gorm.Open(dialector, options...)
 	if err != nil {
-		return nil, oops.Wrapf(err, "open database")
+		return nil, nil, oops.Wrapf(err, "open database")
 	}
-	return database, nil
+	sqlDB, err := database.DB()
+	if err != nil {
+		return nil, nil, oops.Wrapf(err, "get database connection")
+	}
+	return database, sqlDB.Close, nil
 }

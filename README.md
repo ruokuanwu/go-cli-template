@@ -29,7 +29,10 @@ CLI 不传参数时显示帮助；`greet` 默认输出 `Hello, world!`。`greet 
 
 ## 配置与分层
 
-`internal/config` 定义并加载配置，目前只包含日志级别，环境变量 `APP_LOG_LEVEL` 默认值为 `info`，支持 `debug`、`info`、`warn`、`error`、`dpanic`、`panic`、`fatal`。无效级别会在启动时返回错误。
+`internal/config` 定义并加载日志与数据库配置：
+
+- `APP_LOG_LEVEL`：默认 `info`，支持 `debug`、`info`、`warn`、`error`、`dpanic`、`panic`、`fatal`。无效级别会在启动时返回错误。
+- `APP_DB_DSN`：SQLite DSN，默认 `:memory:`，每次运行使用独立内存数据库。设置为文件路径可跨进程持久化；父目录须存在且当前用户可写。
 
 ```bash
 APP_LOG_LEVEL=debug go run ./cmd/go-cli-template greet --name Go
@@ -37,9 +40,17 @@ APP_LOG_LEVEL=debug go run ./cmd/go-cli-template greet --name Go
 
 `internal/app` 负责初始化配置、全局日志及依赖，并定义 Cobra 命令，不再保留独立 CLI 目录。`internal/pkg/log.Init` 根据配置初始化 Zap 全局对象，各层直接使用 `zap.L()` 获取日志；初始化只需在启动时执行。日志输出到标准错误流，正常命令结果输出到标准输出流。
 
-示例调用链：`app → service.Greeting → repository.Greeting → model.Greeting`。Service 校验姓名并拼接问候语，通过一个小接口访问 Repository；Repository 返回固定问候配置，不引入数据库连接或额外 CRUD。
+示例调用链：`app → service.Greeting → repository.Greeting → GORM → SQLite`，数据结构为 `model.Greeting`。Service 校验姓名并拼接问候语；Repository 使用注入的数据库查询问候前缀，不再返回硬编码数据。
 
-数据库入口为 `internal/db.Open`，接收 `gorm.Dialector` 及可选 GORM 配置，初始化错误通过 Oops 包装并保留错误链。未预选数据库驱动、建立连接或执行迁移；需要持久化时再添加实际驱动、替换 Repository 实现并在 `internal/app` 装配。
+`internal/db.Open` 接收 `gorm.Dialector` 和可选 GORM 配置，返回数据库、清理函数和错误，不绑定数据库类型，也不限制连接池。GORM 不内置默认数据库驱动；App 当前显式选择纯 Go SQLite 驱动 `github.com/glebarez/sqlite`，兼容 `CGO_ENABLED=0` 容器构建。更换数据库时替换 App 中的驱动即可。
+
+App 打开数据库后使用 `defer cleanup()` 释放连接，无需接触底层 `sql.DB`。Repository 初始化表并插入默认 `Hello` 记录，重复初始化不会覆盖已有数据。数据库错误通过 Oops 包装并保留错误链。当前 CLI 顺序执行查询，默认内存数据库无需额外连接池设置；扩展为并发访问时，应按所选数据库配置连接池及 DSN。
+
+```bash
+APP_DB_DSN=./app.db go run ./cmd/go-cli-template greet --name Go
+```
+
+容器默认使用内存数据库，无需写入文件。需要持久化时，将 `APP_DB_DSN` 指向挂载目录中的文件，并确保 UID 65532 有写入权限。
 
 ## 常用命令
 
@@ -88,7 +99,7 @@ docker compose -f deploy/prod/compose.yaml run --rm cli
 │   ├── pkg/
 │   │   ├── client/            # 外部客户端（预留）
 │   │   └── log/               # 根据配置初始化 Zap 全局日志
-│   ├── repository/            # 获取固定问候数据
+│   ├── repository/            # GORM 表初始化与问候数据查询
 │   └── service/               # 姓名校验与问候逻辑
 ├── .vscode/launch.json         # Go 调试配置
 ├── docker/Dockerfile           # 多阶段镜像构建

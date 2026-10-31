@@ -1,35 +1,32 @@
 package db
 
 import (
-	"errors"
+	"path/filepath"
 	"testing"
 
-	"gorm.io/gorm"
+	"github.com/glebarez/sqlite"
 )
 
-type testDialector struct {
-	gorm.Dialector
-	err error
-}
-
-func (testDialector) Name() string                { return "test" }
-func (d testDialector) Initialize(*gorm.DB) error { return d.err }
-
 func TestOpen(t *testing.T) {
-	t.Run("initialization error", func(t *testing.T) {
-		want := errors.New("connection failed")
-		_, err := Open(testDialector{err: want})
-		if !errors.Is(err, want) {
-			t.Fatalf("error = %v, want wrapped %v", err, want)
-		}
-	})
-	t.Run("success", func(t *testing.T) {
-		database, err := Open(testDialector{})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if database == nil {
-			t.Fatal("database is nil")
-		}
-	})
+	if _, _, err := Open(sqlite.Open(filepath.Join(t.TempDir(), "missing", "test.db"))); err == nil {
+		t.Fatal("expected invalid database path error")
+	}
+	database, cleanup, err := Open(sqlite.Open(":memory:"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sqlDB, err := database.DB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+	if err := database.Exec("CREATE TABLE test (id INTEGER PRIMARY KEY)").Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := cleanup(); err != nil {
+		t.Fatal(err)
+	}
+	if err := sqlDB.Ping(); err == nil {
+		t.Fatal("cleanup did not close database")
+	}
 }

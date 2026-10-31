@@ -8,6 +8,7 @@ import (
 
 func TestCommands(t *testing.T) {
 	t.Setenv("APP_LOG_LEVEL", "info")
+	t.Setenv("APP_DB_DSN", ":memory:")
 	tests := []struct {
 		name   string
 		args   []string
