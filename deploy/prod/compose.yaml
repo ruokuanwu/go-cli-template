@@ -1,0 +1,7 @@
+services:
+  cli:
+    image: ${CLI_IMAGE:?Set CLI_IMAGE to a published image with a fixed version tag or digest}
+    command: ["greet", "--name", "production"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]

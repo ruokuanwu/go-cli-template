@@ -1,0 +1,12 @@
+services:
+  cli:
+    image: go-cli-template:test
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile
+      args:
+        VERSION: test
+    command: ["greet", "--name", "test"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]

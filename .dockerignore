@@ -1,0 +1,6 @@
+.git
+.vscode
+bin
+*.test
+coverage.out
+.env
