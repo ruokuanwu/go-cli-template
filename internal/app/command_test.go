@@ -1,4 +1,4 @@
-package cli
+package app
 
 import (
 	"bytes"
@@ -6,7 +6,8 @@ import (
 	"testing"
 )
 
-func TestRun(t *testing.T) {
+func TestCommands(t *testing.T) {
+	t.Setenv("APP_LOG_LEVEL", "info")
 	tests := []struct {
 		name   string
 		args   []string
@@ -22,7 +23,7 @@ func TestRun(t *testing.T) {
 		{name: "named greet", args: []string{"greet", "--name", "Go"}, stdout: "Hello, Go!\n"},
 		{name: "greet help", args: []string{"greet", "--help"}, stdout: "Usage: go-cli-template greet"},
 		{name: "unknown command", args: []string{"missing"}, code: 2, stderr: "unknown command"},
-		{name: "unknown flag", args: []string{"greet", "--missing"}, code: 2, stderr: "flag provided but not defined"},
+		{name: "unknown flag", args: []string{"greet", "--missing"}, code: 2, stderr: "unknown flag"},
 		{name: "missing flag value", args: []string{"greet", "--name"}, code: 2, stderr: "flag needs an argument"},
 		{name: "empty name", args: []string{"greet", "--name", "  "}, code: 2, stderr: "name must not be empty"},
 		{name: "extra argument", args: []string{"greet", "extra"}, code: 2, stderr: "unexpected arguments"},
